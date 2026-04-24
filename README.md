@@ -1,44 +1,51 @@
-# Famvest MCP Server
+# FinAPI MCP Server
 
-A Model Context Protocol (MCP) server that integrates with the Famvest portfolio management platform, enabling AI assistants to access and analyze your investment portfolio data.
+A Model Context Protocol (MCP) server that provides comprehensive access to mutual fund and IPO analytics data through AI assistants, enabling intelligent financial analysis and investment discovery.
 
 ## Overview
 
-The Famvest MCP Server provides a secure gateway for AI assistants to interact with your Famvest account. It implements the Model Context Protocol to offer AI systems safe, authenticated access to portfolio management tools and data.
+The FinAPI MCP Server is a powerful analytics platform that integrates mutual fund performance data and IPO market intelligence into the Model Context Protocol. It allows AI assistants to access real-time market data, fund analytics, and IPO information for informed investment decisions.
 
 ## Features
 
-### Portfolio Management
-- **Stock Holdings**: Retrieve current stock holdings with quantity and value information
-- **Mutual Fund Holdings**: Access mutual fund portfolio data and holdings
-- **Positions**: View active positions and open trades with entry/current prices and P&L
-- **Orders**: Track recent stock orders and execution details
-- **Mutual Fund Orders**: Monitor mutual fund order history and status
-- **SIPs**: Manage and view Systematic Investment Plan (SIP) details
+### Mutual Fund Analytics
+- **Performance Analysis**: Top performers, worst performers, and consistent performers across multiple timeframes (1Y, 3Y, 5Y, 7Y, 10Y)
+- **Fund Discovery by Holdings**: Find funds holding specific stocks with position weightage
+- **Sector Exposure Analysis**: Identify funds with highest exposure to specific sectors
+- **Risk & Rating Filters**: Filter funds by Morningstar ratings (1-5 stars) and risk levels
+- **Fund Manager Search**: Discover funds managed by specific portfolio managers
+- **Benchmark Tracking**: Find funds benchmarked against specific indices
 
-### Market Intelligence
-- **Gainers & Losers**: Identify top performing and underperforming holdings across multiple timeframes (1D, 1W, 1M, 3M, 6M, 1Y)
-- **Market Timings**: Check exchange open/close times and market hours
-- **Market Holidays**: View scheduled market holidays
-- **Upcoming Expiries**: Track derivative contract expiry dates
-- **IPO Management**: Browse available IPOs and manage IPO applications
+### Portfolio Allocation Analysis
+- **Cash Allocation**: Identify funds with highest cash positions
+- **Equity Allocation**: Find equity-focused funds
+- **Market Cap Distribution**: Analyze large-cap, mid-cap, and small-cap heavy funds
+- **Cost Efficiency**: Identify lowest expense ratio and most cost-efficient funds
+- **Volatility Analysis**: Find stable, low-volatility funds for risk-averse investors
 
-### Account Management
-- **User Profile**: Access your profile information and preferences
-- **Account Profiles**: View linked trading accounts
-- **Funds**: Check account balance and fund availability
+### Fund Metadata & Classification
+- **Category Analytics**: Browse fund categories and category leaders
+- **Fund Houses**: Explore all AMCs (Asset Management Companies) and their offerings
+- **Vintage Analysis**: Discover oldest and newest mutual funds
+- **Direct Fund Lookup**: Access funds by scheme code, ISIN, or fund house
+- **Fund Search**: Wildcard search by scheme name
+- **NAV History**: Retrieve historical Net Asset Value data
 
-### Search & Discovery
-- **Instrument Search**: Find trading instruments by symbol, token, or exchange
+### IPO Intelligence
+- **Live IPOs**: Track currently open IPO subscriptions
+- **Upcoming IPOs**: Monitor IPOs opening soon
+- **IPO Analytics**: Identify most subscribed IPOs and highest Grey Market Premium (GMP)
+- **IPO Search**: Look up historical and current IPO details
+- **Market Overview**: Get comprehensive IPO market summary by status and type
 
-### Admin Features
-- **Schedulers**: Monitor scheduled job status and execution history
-- **Application Users**: View system users (admin access required)
+### Market Information
+- **Exchange Holidays**: Access stock market holiday calendars
+- **Health Checks**: Monitor FinAPI API server availability
 
 ## Installation
 
 ### Prerequisites
-- Python 3.14 or higher
+- Python 3.8 or higher
 - pip or uv package manager
 
 ### Setup
@@ -46,7 +53,7 @@ The Famvest MCP Server provides a secure gateway for AI assistants to interact w
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd famvest-mcp-server
+cd finapi-mcp-server
 ```
 
 2. Install dependencies:
@@ -55,7 +62,7 @@ cd famvest-mcp-server
 pip install -r requirements.txt
 
 # Or using uv
-uv install
+uv sync
 ```
 
 3. Run the server:
@@ -63,107 +70,106 @@ uv install
 python main.py
 ```
 
-The server will start on `http://localhost:8003` with HTTP transport.
+The server will start on `http://localhost:8004` with HTTP transport.
 
 ## Configuration
 
 ### Environment Variables
-- `MCP_PORT`: Port for the MCP server (default: 8003)
+- `MCP_PORT`: Port for the MCP server (default: 8004)
 
 ### Server Details
-- **Name**: Famvest MCP Server
+- **Name**: FinAPI MCP Server
 - **Transport**: HTTP
-- **Port**: 8003
-- **API Base**: `https://famvest.upvaly.com`
+- **Port**: 8004
+- **API Base**: `https://api.finapi.upvaly.com`
 
 ## Usage
 
 ### Authentication
-
-All tools (except `login`) require authentication:
-
-1. Call the `login()` tool to get login instructions
-2. Follow the provided login URL and complete authentication
-3. The server will automatically manage session tokens for subsequent API calls
-
-⚠️ **Security Warning**: AI systems are unpredictable and non-deterministic. Use with caution when connecting to real trading accounts.
+All tools are unauthenticated and directly access the FinAPI Analytics API.
 
 ### Tool Invocation
 
 Example usage patterns:
 
 ```
-# Check authentication
-login()
+# Get mutual fund analytics
+get_mf_top_performers(period="3y", limit=10)
+get_mf_consistent_performers()
+get_mf_worst_performers(period="1y")
 
-# Get portfolio overview
-get_stock_holdings()
-get_mutual_fund_holdings()
-get_funds()
+# Find funds by holdings, sector, or manager
+get_mf_by_holding(stockName="HDFC Bank")
+get_mf_by_sector_exposure(sector="Financial Services")
+get_mf_by_fund_manager(managerName="Prashant Jain")
 
-# Analyze performance
-get_gainers_losers(timeframe="3M")
+# Filter by ratings and risk
+get_mf_by_rating(rating=5)
+get_mf_by_risk_level(risk="Low")
 
-# Check account status
-get_positions()
-get_orders()
+# Portfolio allocation analysis
+get_mf_highest_equity_allocation()
+get_mf_large_cap_heavy()
+get_mf_lowest_expense_ratio()
+get_mf_lowest_volatility()
+
+# Fund discovery
+get_mf_categories()
+get_mf_fund_houses()
+get_mf_category_leaders()
+get_mf_by_category(category="Large Cap")
+
+# Direct fund lookup
+get_mf_by_scheme_code(schemeCode="118989")
+get_mf_by_isin(isin="INF209K01YH3")
+search_mf(query="Axis Bluechip")
+get_mf_nav_by_isin(isin="INF209K01YH3", startDate="2025-01-01")
+
+# IPO analytics
+get_ipo_live()
+get_ipo_upcoming()
+get_ipo_most_subscribed()
+get_ipo_highest_gmp()
+search_ipo(name="Zomato")
+get_ipo_overview()
 
 # Market information
-get_market_timings()
-get_market_holidays()
+check_health()
+get_exchange_holidays()
 ```
 
 ## Architecture
 
-### Middleware Pipeline
-
-The server implements a two-stage middleware pipeline:
-
-1. **OnRequestMiddleware** (`middleware/on_request_middleware.py`)
-   - Extracts and stores session ID from incoming MCP requests
-   - Manages session context for downstream components
-
-2. **OnCallToolMiddleware** (`middleware/on_call_tool_middleware.py`)
-   - Intercepts all tool calls (except `login`)
-   - Fetches authentication tokens using session ID
-   - Automatically injects Bearer token into API requests
-   - Enforces login requirement for protected endpoints
-
 ### Core Components
 
 - **main.py**: Server entry point and FastMCP initialization
-- **tools/tools.py**: Tool definitions and implementation
-- **middleware/**: Request/response processing pipeline
+- **tools/tools.py**: Tool definitions and implementation for mutual fund and IPO analytics
 
-## API Integration
+### API Integration
 
-The server communicates with the Famvest API at `https://famvest.upvaly.com/rest/v1/`:
+The server communicates with the FinAPI Analytics API at `https://api.finapi.upvaly.com`:
 
-- Authentication: Bearer token in Authorization header
 - Format: JSON
-- Timeout: 10 seconds per request
+- Timeout: 15 seconds per request
+- Authentication: No authentication required (public API)
 
 ### Error Handling
 
 - Invalid requests return descriptive `ToolError` exceptions
-- Authentication failures trigger login prompts
 - Network timeouts are handled with appropriate error messages
 
 ## Development
 
 ### Project Structure
 ```
-famvest-mcp-server/
+finapi-mcp-server/
 ├── main.py                    # Server entry point
-├── pyproject.toml            # Project metadata
-├── requirements.txt          # Python dependencies
+├── requirements.txt           # Python dependencies
+├── README.md                  # Project documentation
 ├── tools/
 │   ├── __init__.py
-│   └── tools.py             # Tool implementations
-└── middleware/
-    ├── __init__.py
-    ├── on_request_middleware.py
-    └── on_call_tool_middleware.py
+│   └── tools.py              # Tool implementations
+└── prod-deployment-scripts/  # Production deployment configuration
 ```
 
 ### Dependencies
@@ -172,44 +178,38 @@ famvest-mcp-server/
 - **fastapi** (>=0.128.0): Web framework for HTTP transport
 - **httpx**: Async HTTP client for API calls
 - **cyclopts** (>=5.0.0a1): CLI framework
-- **ipykernel**: Jupyter kernel support
 
 ## Security Considerations
 
-1. **Authentication**: All tool access requires successful Famvest login
-2. **Session Management**: Server manages tokens via session IDs
-3. **Authorization**: Token-based authorization for all API calls
-4. **HTTPS**: All API communication uses HTTPS
-5. **Scope**: AI assistants can only access your own account data
+1. **Public API**: All tools are unauthenticated - they access public market data
+2. **No Session Management**: Server does not maintain session state
+3. **HTTPS**: All API communication uses HTTPS
+4. **Read-Only**: All endpoints are read-only analytics queries
+5. **Rate Limiting**: Subject to FinAPI API rate limits
 
 ## Troubleshooting
 
 ### Connection Issues
-- Ensure Famvest API is accessible at `https://famvest.upvaly.com`
+- Ensure FinAPI API is accessible at `https://api.finapi.upvaly.com`
 - Check network connectivity
-- Verify HTTP timeout settings (10s default)
-
-### Authentication Errors
-- Confirm login was completed successfully
-- Check session ID validity
-- Verify token is not expired
+- Verify HTTP timeout settings (15s default)
 
 ### Tool Failures
 - Review error message for specific API error details
 - Ensure required parameters are provided
-- Check Famvest API documentation for endpoint specifics
+- Check FinAPI API documentation for endpoint specifics
 
 ## Support
 
 For issues related to:
-- **Famvest Platform**: Visit [Famvest](https://famvest.upvaly.com)
+- **FinAPI Platform**: Visit [FinAPI](https://api.finapi.upvaly.com)
 - **MCP Protocol**: See [Model Context Protocol](https://modelcontextprotocol.io)
 - **FastMCP**: Check [FastMCP GitHub](https://github.com/jlowin/fastmcp)
 
 ## License
 
-This project is provided as-is for integration with the Famvest platform.
+This project is provided as-is for access to FinAPI analytics data.
 
 ## Disclaimer
 
-This MCP server provides programmatic access to your trading account. Use responsibly and ensure you understand the implications of AI-driven portfolio decisions. Always review actions before they execute on your account.
+This MCP server provides programmatic access to financial market analytics data. Use responsibly for research, analysis, and investment discovery. Always verify data accuracy and consult with financial advisors before making investment decisions.

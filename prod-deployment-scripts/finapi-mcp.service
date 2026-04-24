@@ -1,0 +1,17 @@
+[Unit]
+Description=FinAPI MCP Server
+After=network.target nginx.service
+Requires=nginx.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/mcp/finapi-mcp-server
+
+ExecStart=/opt/mcp/finapi-mcp-server/venv/bin/python main.py
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

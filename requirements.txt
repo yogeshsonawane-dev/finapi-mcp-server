@@ -1,0 +1,4 @@
+fastmcp
+cyclopts>=5.0.0a1
+fastapi
+httpx

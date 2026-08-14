@@ -681,6 +681,56 @@ def setup_tools(mcp):
         """
         return await make_api_call("/api/exchange/holidays")
 
+    # ── NIFTY Indices: Historical Prices ───────────────────────────────────────
+
+    @mcp.tool()
+    async def get_nifty_indices(indexName: str = "", startDate: str = "", endDate: str = ""):
+        """
+        Fetch historical price data for NIFTY indices including Price Return Index (OPEN, HIGH, LOW, CLOSE),
+        Total Return Index (TRI), and Net Total Return Index (NTR).
+
+        Supports 21 major NIFTY indices with optional date range and index filtering. Data available from index inception date.
+
+        Supported indices:
+        - NIFTY 50
+        - NIFTY NEXT 50
+        - NIFTY 100
+        - NIFTY 200
+        - NIFTY 500
+        - NIFTY LARGEMIDCAP 250
+        - NIFTY MID SELECT
+        - NIFTY MIDCAP 100
+        - NIFTY MIDCAP 50
+        - NIFTY MIDCAP 150
+        - NIFTY MIDSMALLCAP 400
+        - NIFTY MIDSMALLCAP400 50:50
+        - NIFTY SMALLCAP 50
+        - NIFTY SMALLCAP 100
+        - NIFTY SMALLCAP 250
+        - NIFTY SMALLCAP 500
+        - NIFTY500 MULTICAP
+        - NIFTY MICROCAP 250
+        - NIFTY TOTAL MARKET
+        - NIFTY500 LARGEMIDSMALL EQUAL-CAP WEIGHTED
+        - NIFTY INDIA FPI 150
+
+        Args:
+            indexName: NIFTY index name — e.g. "NIFTY 50", "NIFTY 100", "NIFTY 500" (optional)
+            startDate: Range start (inclusive) — format: yyyy-MM-dd. Default handled by API (01-Jan-1990)
+            endDate: Range end (inclusive) — format: yyyy-MM-dd. Default handled by API (today)
+
+        Returns:
+            Historical index price series including OPEN, HIGH, LOW, CLOSE, TRI and NTR where available.
+        """
+        params = {}
+        if indexName:
+            params["indexName"] = indexName
+        if startDate:
+            params["startDate"] = startDate
+        if endDate:
+            params["endDate"] = endDate
+        return await make_api_call("/api/nifty-indices", params or None)
+
     # ── Mutual Fund: Direct Lookup ────────────────────────────────────────────
 
     @mcp.tool()

@@ -76,6 +76,7 @@ The server will start on `http://localhost:8004` with HTTP transport.
 
 ### Environment Variables
 - `MCP_PORT`: Port for the MCP server (default: 8004)
+- `FINAPI_API_KEY`: Optional FinAPI API key. When set, it is sent as the `X-API-Key` header on every FinAPI API call, which grants higher rate limits. Omit it to call the API without a key.
 
 ### Server Details
 - **Name**: FinAPI MCP Server
@@ -86,7 +87,29 @@ The server will start on `http://localhost:8004` with HTTP transport.
 ## Usage
 
 ### Authentication
-All tools are unauthenticated and directly access the FinAPI Analytics API.
+All tools are unauthenticated and directly access the FinAPI Analytics API. Optionally, you can configure a FinAPI API key to get higher rate limits — the server will send it as the `X-API-Key` header on every request. To enable it, set the `FINAPI_API_KEY` environment variable when starting the server, e.g. in your MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "finapi": {
+      "command": "python",
+      "args": ["main.py"],
+      "env": {
+        "FINAPI_API_KEY": "your-finapi-api-key"
+      }
+    }
+  }
+}
+```
+
+Or when running directly:
+
+```bash
+FINAPI_API_KEY=your-finapi-api-key python main.py
+```
+
+The header is only sent when a key is configured; requests work without it.
 
 ### Tool Invocation
 

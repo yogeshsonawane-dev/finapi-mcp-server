@@ -1,3 +1,5 @@
+import os
+
 import httpx
 from fastmcp.exceptions import ToolError
 
@@ -6,10 +8,23 @@ from fastmcp.exceptions import ToolError
 # -------------------------
 BASE_URL = "https://api.finapi.upvaly.com"
 
+# Optional FinAPI API key. When configured via the FINAPI_API_KEY environment
+# variable, it is sent as the X-API-Key header on every request for higher rate
+# limits. The header is omitted entirely when no key is provided.
+API_KEY_ENV_VAR = "FINAPI_API_KEY"
+
+
+def _api_headers() -> dict:
+    headers = {"Accept": "application/json"}
+    api_key = os.getenv(API_KEY_ENV_VAR, "").strip()
+    if api_key:
+        headers["X-API-Key"] = api_key
+    return headers
+
 
 async def make_api_call(endpoint: str, params: dict = None):
     """
-    Common helper for making unauthenticated API calls to the Analytics API.
+    Common helper for making API calls to the Analytics API.
 
     Args:
         endpoint: The API endpoint path (e.g., "/api/analytics/mf/top-performers")
@@ -23,7 +38,7 @@ async def make_api_call(endpoint: str, params: dict = None):
     """
     async with httpx.AsyncClient(timeout=15) as client:
         url = f"{BASE_URL}{endpoint}"
-        response = await client.get(url, params=params, headers={"Accept": "application/json"})
+        response = await client.get(url, params=params, headers=_api_headers())
 
         if response.status_code != 200:
             raise ToolError(response.text)

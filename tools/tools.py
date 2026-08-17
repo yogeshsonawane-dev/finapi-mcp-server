@@ -30,8 +30,8 @@ async def _resolve_api_key() -> str | None:
 
     A key is required to use the MCP server:
 
-    - If the operator configured FINAPI_API_KEY in the MCP config, it is used
-      directly and no OAuth is required.
+    - A server-side FINAPI_API_KEY or request X-API-Key header is used directly
+      and no OAuth identity is required.
     - Otherwise the caller must authenticate via Google OAuth. The server then
       asks FinAPI to resolve the user's email to their active API key, and
       guides the user when the FinAPI account is missing or has no key.
@@ -47,6 +47,10 @@ async def _resolve_api_key() -> str | None:
         )
 
     token = get_access_token()
+    api_key = token.claims.get("api_key") if token else None
+    if api_key:
+        return api_key
+
     email = token.claims.get("email") if token else None
     if not email:
         raise ToolError(
@@ -62,8 +66,8 @@ async def _resolve_api_key() -> str | None:
     if not result.user_found:
         raise ToolError(
             "This Google account is not registered on FinAPI. Create a profile "
-            "at https://finapi.upvaly.com, then either add your API key to the "
-            "MCP config (FINAPI_API_KEY) or log in with this same email."
+            "at https://finapi.upvaly.com, then either configure X-API-Key in "
+            "your MCP client or log in with this same email."
         )
     if not result.api_key:
         raise ToolError(
@@ -947,4 +951,3 @@ def setup_tools(mcp):
         if endDate:
             params["endDate"] = endDate
         return await make_api_call(f"/api/mf/scheme-code/{schemeCode}/nav", params or None)
-

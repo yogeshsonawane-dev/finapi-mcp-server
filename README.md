@@ -135,12 +135,38 @@ python main.py
 
 > **Note:** FinAPI's own "Sign in with Google" button belongs to FinAPI's platform and cannot be reused. The OAuth app configured above is independent and controls who can access your MCP server.
 
+### Hosted API-key configuration
+
+For Claude Desktop using `mcp-remote`, pass the key as a forwarded HTTP header. An `env` value by itself only sets an environment variable for the local `mcp-remote` process; it is not sent to the hosted server.
+
+```json
+{
+  "mcpServers": {
+    "finapi": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.finapi.upvaly.com/mcp",
+        "--header",
+        "X-API-Key:${FINAPI_API_KEY}"
+      ],
+      "env": {
+        "FINAPI_API_KEY": "fna_live_your_key"
+      }
+    }
+  }
+}
+```
+
+With `X-API-Key` configured, the hosted server accepts the request directly and does not start OAuth. Keep the key private; anyone who obtains it can use the associated FinAPI account.
+
 ### API Key Resolution (a key is required)
 
-An API key is **required** to use the MCP server. It is obtained one of two ways:
+An API key is **required** to use the MCP server. It is obtained one of three ways:
 
-1. **Configure a key in the MCP config** — set `FINAPI_API_KEY` in the server env. The key is used directly on every analytics call and OAuth login is skipped entirely.
-2. **Google OAuth login** — when no `FINAPI_API_KEY` is set, the server requires OAuth. After login it reads the caller's Google email and asks FinAPI's subscription endpoint to resolve the user's latest active API key, which is then sent as the `X-API-Key` header on every analytics call.
+1. **Configure a key in a locally launched server** — set `FINAPI_API_KEY` in the server env. The key is used directly on every analytics call and OAuth login is skipped entirely.
+2. **Pass a key to the hosted server** — send `X-API-Key` on MCP requests. This is the bring-your-own-key option for `mcp.finapi.upvaly.com`; it takes precedence over a cached OAuth token and OAuth is skipped.
+3. **Google OAuth login** — when neither a server key nor an `X-API-Key` header is present, the server requires OAuth. After login it reads the caller's Google email and asks FinAPI's subscription endpoint to resolve the user's latest active API key.
 
 The resolved key is cached per email (5 min by default). Outcomes from the subscription lookup are surfaced to the AI:
 
@@ -228,7 +254,7 @@ Mock the subscription endpoint and verify pro users get a key and free users don
 ## Usage
 
 ### Authentication
-All tools are unauthenticated and directly access the FinAPI Analytics API. Optionally, you can configure a FinAPI API key to get higher rate limits — the server will send it as the `X-API-Key` header on every request. To enable it, set the `FINAPI_API_KEY` environment variable when starting the server, e.g. in your MCP client configuration:
+The server accepts either OAuth or a client-provided `X-API-Key` header. For a locally launched server, you can configure the key through `FINAPI_API_KEY`:
 
 ```json
 {
@@ -250,7 +276,7 @@ Or when running directly:
 FINAPI_API_KEY=your-finapi-api-key python main.py
 ```
 
-The header is only sent when a key is configured; requests work without it.
+For the hosted server, use the `mcp-remote --header` configuration shown above. The header key takes precedence over a cached OAuth identity. Requests without a header continue through Google OAuth and per-user subscription lookup.
 
 ### Tool Invocation
 

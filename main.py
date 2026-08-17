@@ -2,8 +2,8 @@ import os
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.google import GoogleProvider
 
+from auth.api_key import GoogleProviderWithApiKey
 from auth.subscription import tier_client_from_env
 from tools.tools import set_tier_client, setup_tools
 
@@ -19,7 +19,7 @@ def _build_auth():
     base_url = os.getenv("MCP_PUBLIC_URL")
     if not (client_id and client_secret and base_url):
         return None
-    return GoogleProvider(
+    return GoogleProviderWithApiKey(
         client_id=client_id,
         client_secret=client_secret,
         base_url=base_url,

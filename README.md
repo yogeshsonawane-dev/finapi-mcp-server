@@ -77,6 +77,147 @@ The server will start on `http://localhost:8004` with HTTP transport.
 ### Environment Variables
 - `MCP_PORT`: Port for the MCP server (default: 8004)
 - `FINAPI_API_KEY`: Optional FinAPI API key. When set, it is sent as the `X-API-Key` header on every FinAPI API call, which grants higher rate limits. Omit it to call the API without a key.
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID (e.g. `123456789.apps.googleusercontent.com`). Enables OAuth on the MCP server.
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret.
+- `MCP_PUBLIC_URL`: Public HTTPS base URL where the server is reachable (e.g. `https://mcp.example.com`). Required for OAuth.
+- `FINAPI_SUBSCRIPTION_API_URL`: URL of the FinAPI internal endpoint that resolves an email to the user's active FinAPI API key. When set (with the API key), per-user key resolution is enabled.
+- `FINAPI_SUBSCRIPTION_API_KEY`: Shared secret sent to the subscription endpoint.
+- `FINAPI_SUBSCRIPTION_API_HEADER`: Header used for the secret (default: `X-API-Key`).
+- `FINAPI_SUBSCRIPTION_CACHE_TTL`: Cache TTL for resolved keys in seconds (default: 300).
+- `FINAPI_SUBSCRIPTION_NEGATIVE_CACHE_TTL`: Cache TTL for "user not found" / "no key" lookups in seconds (default: 60).
+- `FINAPI_SUBSCRIPTION_API_TIMEOUT`: Timeout for the subscription request (default: 5s).
+
+When `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `MCP_PUBLIC_URL` are all set, the server runs with OAuth protection. Otherwise it runs unauthenticated as before.
+
+## OAuth Authentication (Google Sign-In)
+
+Claude.ai web does not support MCP servers that require API keys; instead it requires the server to implement the [MCP OAuth 2.0 authorization flow](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization). This server uses FastMCP's built-in `GoogleProvider`, which implements the full flow (authorization endpoint, PKCE, token exchange, and consent) with a "Sign in with Google" button.
+
+### How it works
+
+When OAuth is enabled, the server exposes these endpoints (served over Streamable HTTP):
+
+- `/.well-known/oauth-authorization-server` and `/.well-known/openid-configuration` — OAuth discovery metadata
+- `/authorize` — MCP client authorization
+- `/token` — token exchange
+- `/register` — dynamic client registration
+- `/auth/callback` — Google OAuth callback
+
+A user connecting (e.g. in Claude) is redirected to Google to sign in, then back, and their session is authorized to call the server's tools.
+
+### Prerequisites
+
+1. **A public HTTPS URL** for the server. OAuth requires a publicly reachable endpoint with a valid TLS certificate (localhost will not work for Claude.ai web). Deploy behind a reverse proxy (nginx, Caddy, a load balancer, etc.) or a tunnel.
+
+2. **A Google OAuth app** in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+   - Create an OAuth client ID of type **Web application**.
+   - Add `https://accounts.google.com` as an authorized JavaScript origin.
+   - Add `<MCP_PUBLIC_URL>/auth/callback` as an authorized redirect URI (e.g. `https://mcp.example.com/auth/callback`).
+   - Note the client ID and client secret.
+
+### Configuration
+
+Start the server with OAuth enabled:
+
+```bash
+export GOOGLE_CLIENT_ID="123456789.apps.googleusercontent.com"
+export GOOGLE_CLIENT_SECRET="GOCSPX-..."
+export MCP_PUBLIC_URL="https://mcp.example.com"
+python main.py
+```
+
+### Connecting from Claude
+
+1. In Claude, add an MCP server of type **OAuth 2.0** / **Custom** and enter your `MCP_PUBLIC_URL`.
+2. Claude discovers the OAuth endpoints and opens the authorization URL.
+3. Sign in with Google and approve the consent screen.
+4. Claude stores the token and can now call the FinAPI tools.
+
+> **Note:** FinAPI's own "Sign in with Google" button belongs to FinAPI's platform and cannot be reused. The OAuth app configured above is independent and controls who can access your MCP server.
+
+### API Key Resolution (a key is required)
+
+An API key is **required** to use the MCP server. It is obtained one of two ways:
+
+1. **Configure a key in the MCP config** — set `FINAPI_API_KEY` in the server env. The key is used directly on every analytics call and OAuth login is skipped entirely.
+2. **Google OAuth login** — when no `FINAPI_API_KEY` is set, the server requires OAuth. After login it reads the caller's Google email and asks FinAPI's subscription endpoint to resolve the user's latest active API key, which is then sent as the `X-API-Key` header on every analytics call.
+
+The resolved key is cached per email (5 min by default). Outcomes from the subscription lookup are surfaced to the AI:
+
+- **User not found (HTTP 404)** → the tool tells the user their Google account isn't registered on FinAPI, and to create a profile at `https://finapi.upvaly.com`, then either add the API key to the MCP config (`FINAPI_API_KEY`) or log in with the same email.
+- **User found but no key (`{"api_key": null}`)** → the tool tells the user to create at least one API key at `https://finapi.upvaly.com`.
+- **User found with key** → the key is used for all subsequent calls.
+
+**Expected subscription endpoint contract** (implemented on your FinAPI server):
+
+```
+GET {FINAPI_SUBSCRIPTION_API_URL}?email=user@example.com
+Header: X-API-Key: <FINAPI_SUBSCRIPTION_API_KEY>
+
+200 OK (has key): {"api_key": "abc-123..."}
+200 OK (no key):  {"api_key": null}
+404 (unknown user)
+```
+
+## Getting Google OAuth Credentials
+
+To get `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`:
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create/select a project.
+2. Search for and enable **Google Identity Services** (OAuth consent screen is configured under "APIs & Services" → "OAuth consent screen").
+3. Under **APIs & Services → OAuth consent screen**: choose *External*, add your app name, and add `https://accounts.google.com` and your public origin as *Authorized domains*.
+4. Under **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
+   - **Application type**: *Web application*
+   - **Authorized JavaScript origins**: add `https://accounts.google.com`
+   - **Authorized redirect URIs**: add `<MCP_PUBLIC_URL>/auth/callback` (e.g. `https://mcp.example.com/auth/callback` or `http://localhost:8004/auth/callback` for local testing — Google allows `http://localhost` for development)
+5. Copy the **Client ID** and **Client secret** into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+### What is `MCP_PUBLIC_URL`?
+
+It is the public HTTPS URL where the MCP server's OAuth endpoints are reachable. Google must be able to redirect users back to `<MCP_PUBLIC_URL>/auth/callback`, so it must match an entry in your OAuth app's redirect URIs.
+
+- **Local testing**: `http://localhost:8004` (works without a tunnel; add `http://localhost:8004/auth/callback` to Google).
+- **Testing with Claude.ai web**: a public HTTPS URL. Use a tunnel (`ngrok http 8004`, `cloudflared tunnel --url http://localhost:8004`) or deploy behind a reverse proxy with TLS. Claude cannot reach localhost, and Google requires HTTPS except for localhost.
+- **Production**: your deployed domain, e.g. `https://mcp.example.com`.
+
+## Testing
+
+### 1. Smoke test the OAuth endpoints (no browser)
+
+Run the server with OAuth enabled, then check discovery metadata:
+
+```bash
+GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... MCP_PUBLIC_URL=http://localhost:8004 python main.py
+```
+
+```bash
+curl http://localhost:8004/.well-known/oauth-authorization-server
+# -> 200, shows authorization_endpoint + token_endpoint
+
+curl http://localhost:8004/mcp
+# -> 401 (protected, expected)
+```
+
+### 2. Full OAuth flow test (browser + real Google sign-in)
+
+`test_oauth.py` starts the server, checks discovery, then connects as an OAuth client which opens a browser for Google sign-in:
+
+```bash
+GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... MCP_PUBLIC_URL=http://localhost:8004 python test_oauth.py
+```
+
+Expected output: the discovery endpoints return 200, the browser opens, you sign in with Google, and `check_health` returns data.
+
+### 3. Test per-user key resolution (no Google needed)
+
+Mock the subscription endpoint and verify pro users get a key and free users don't (as shown in the development session). Point `FINAPI_SUBSCRIPTION_API_URL` at a stub that returns `{"api_key": "..."}` for a pro email, then confirm the `X-API-Key` header on outgoing FinAPI analytics calls.
+
+### 4. Test with Claude.ai web
+
+1. Start a tunnel to your server: `ngrok http 8004`, take the HTTPS URL as `MCP_PUBLIC_URL`.
+2. Add `<tunnel-url>/auth/callback` to your Google OAuth app's redirect URIs.
+3. Start the server with `MCP_PUBLIC_URL=<tunnel-url>`.
+4. In Claude, add an MCP server (type OAuth) with that URL; complete the Google sign-in.
 
 ### Server Details
 - **Name**: FinAPI MCP Server
@@ -204,11 +345,12 @@ finapi-mcp-server/
 
 ## Security Considerations
 
-1. **Public API**: All tools are unauthenticated - they access public market data
-2. **No Session Management**: Server does not maintain session state
-3. **HTTPS**: All API communication uses HTTPS
-4. **Read-Only**: All endpoints are read-only analytics queries
-5. **Rate Limiting**: Subject to FinAPI API rate limits
+1. **Public API**: The underlying FinAPI API is public - the tools access public market data
+2. **Server Auth**: When `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `MCP_PUBLIC_URL` are set, MCP clients must sign in with Google before calling any tool. Without them, the server runs unauthenticated
+3. **No Session Management**: Server does not maintain its own session state
+4. **HTTPS**: All API communication uses HTTPS
+5. **Read-Only**: All endpoints are read-only analytics queries
+6. **Rate Limiting**: Subject to FinAPI API rate limits
 
 ## Troubleshooting
 

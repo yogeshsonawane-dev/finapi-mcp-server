@@ -2,21 +2,80 @@ import os
 
 import httpx
 from fastmcp.exceptions import ToolError
+from fastmcp.server.dependencies import get_access_token
 
 # -------------------------
 # COMMON API HELPER
 # -------------------------
 BASE_URL = "https://api.finapi.upvaly.com"
 
-# Optional FinAPI API key. When configured via the FINAPI_API_KEY environment
-# variable, it is sent as the X-API-Key header on every request for higher rate
-# limits. The header is omitted entirely when no key is provided.
+# Fallback FinAPI API key. When no subscription endpoint is configured, the
+# FINAPI_API_KEY environment variable is sent as the X-API-Key header on every
+# request for higher rate limits.
 API_KEY_ENV_VAR = "FINAPI_API_KEY"
 
+# Optional TierClient used to resolve a per-user API key from the FinAPI
+# platform based on the OAuth'd user's Google email. Set at startup.
+_tier_client = None
 
-def _api_headers() -> dict:
+
+def set_tier_client(client):
+    """Configure the subscription client used to resolve per-user API keys."""
+    global _tier_client
+    _tier_client = client
+
+
+async def _resolve_api_key() -> str | None:
+    """Determine the API key to send for the current request.
+
+    A key is required to use the MCP server:
+
+    - If the operator configured FINAPI_API_KEY in the MCP config, it is used
+      directly and no OAuth is required.
+    - Otherwise the caller must authenticate via Google OAuth. The server then
+      asks FinAPI to resolve the user's email to their active API key, and
+      guides the user when the FinAPI account is missing or has no key.
+    """
+    env_key = os.getenv(API_KEY_ENV_VAR, "").strip() or None
+    if env_key:
+        return env_key
+
+    if _tier_client is None:
+        raise ToolError(
+            "No API key is configured. Set FINAPI_API_KEY in the MCP server "
+            "config, or enable Google OAuth login."
+        )
+
+    token = get_access_token()
+    email = token.claims.get("email") if token else None
+    if not email:
+        raise ToolError(
+            "Authentication required. Please use Google login (OAuth) to use "
+            "this MCP server."
+        )
+
+    result = await _tier_client.get_api_key(email)
+    if result.user_found is None:
+        raise ToolError(
+            "Could not verify your FinAPI subscription. Please try again later."
+        )
+    if not result.user_found:
+        raise ToolError(
+            "This Google account is not registered on FinAPI. Create a profile "
+            "at https://finapi.upvaly.com, then either add your API key to the "
+            "MCP config (FINAPI_API_KEY) or log in with this same email."
+        )
+    if not result.api_key:
+        raise ToolError(
+            "No API key is linked to this FinAPI account. Create at least one "
+            "API key at https://finapi.upvaly.com to use the MCP server."
+        )
+    return result.api_key
+
+
+async def _api_headers() -> dict:
     headers = {"Accept": "application/json"}
-    api_key = os.getenv(API_KEY_ENV_VAR, "").strip()
+    api_key = await _resolve_api_key()
     if api_key:
         headers["X-API-Key"] = api_key
     return headers
@@ -38,7 +97,7 @@ async def make_api_call(endpoint: str, params: dict = None):
     """
     async with httpx.AsyncClient(timeout=15) as client:
         url = f"{BASE_URL}{endpoint}"
-        response = await client.get(url, params=params, headers=_api_headers())
+        response = await client.get(url, params=params, headers=await _api_headers())
 
         if response.status_code != 200:
             raise ToolError(response.text)

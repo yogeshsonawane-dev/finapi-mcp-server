@@ -877,7 +877,7 @@ def setup_tools(mcp):
         Returns:
             List of mutual funds whose scheme names match the search query.
         """
-        return await make_api_call("/api/mf/search", {"query": query})
+        return await make_api_call("/api/mf/search", {"schemeName": query})
 
     @mcp.tool()
     async def get_mf_by_scheme_name(schemeName: str):
